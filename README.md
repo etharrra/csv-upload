@@ -49,31 +49,37 @@ To get started with the project, follow these steps:
     npm install
     ```
 
-3. Copy the `.env.example` file to `.env` and configure your environment variables:
+3. Install JavaScript dependencies:
+
+    ```bash
+    npm run build
+    ```
+
+4. Copy the `.env.example` file to `.env` and configure your environment variables:
 
     ```bash
     cp .env.example .env
     ```
 
-4. Generate an application key:
+5. Generate an application key:
 
     ```bash
     php artisan key:generate
     ```
 
-5. Run database migrations:
+6. Run database migrations:
 
     ```bash
     php artisan migrate
     ```
 
-6. Start the development server:
+7. Start the development server:
 
     ```bash
     php artisan serve
     ```
 
-7. Access your application at `http://localhost:8000`.
+8. Access your application at `http://localhost:8000`.
 
 ## Running Queue Workers
 
