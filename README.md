@@ -49,7 +49,7 @@ To get started with the project, follow these steps:
     npm install
     ```
 
-3. Install JavaScript dependencies:
+3. Building the Application:
 
     ```bash
     npm run build
