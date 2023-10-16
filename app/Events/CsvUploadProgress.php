@@ -23,13 +23,7 @@ class CsvUploadProgress implements ShouldBroadcastNow
      */
     public function __construct($batchId, $progress, $failedJobs, $finished, $pendingJobs)
     {
-        $this->batch_arr = [
-            'batchId' => $batchId,
-            'progress' => $progress,
-            'failedJobs' => $failedJobs,
-            'finished' => $finished,
-            'pendingJobs' => $pendingJobs
-        ];
+        $this->batch_arr = compact('batchId', 'progress', 'failedJobs', 'finished', 'pendingJobs');
     }
 
     /**
