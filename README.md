@@ -116,6 +116,7 @@ php artisan websockets:serve
     - Start by downloading the necessary CSV files from the provided links:
         - [yoprint_test_import.csv](https://drive.google.com/file/d/1gHgR6KPxTZ78Z2zIj4XKt168A9Q6jdet/view?usp=drive_link)
         - [yoprint_test_updated.csv](https://drive.google.com/file/d/11Fp4Sh3Jfu3kH40UzDJc20-0DdW2zGNg/view?usp=drive_link)
+        - [yoprint_test_import_1m.csv](https://drive.google.com/file/d/1v16Nr7c_rXGeEmJdnwuwKqpAGYGGaU6V/view?usp=drive_link)
         - [yoprint_test_import - Failed.csv](https://drive.google.com/file/d/1DP0S8TK-sBno8T-n8bOjcBgSSgd937V0/view?usp=drive_link)
 
 2. **Upload yoprint_test_import.csv**:
@@ -139,6 +140,15 @@ php artisan websockets:serve
     - This file is intentionally formatted to trigger errors during processing.
 
     As a result, the status of the file will change to "failed," demonstrating the application's ability to handle and report errors.
+
+5. **Uploading 1 Million Records (Optional)**:
+
+    If you want to process a large dataset with one million records, upload the `yoprint_test_import_1m.csv` file.
+    Consider the following before you start the import process:
+
+    - Ensure your server and database are properly configured to handle such a large dataset.
+    - It's recommended to perform this upload in a controlled environment due to the potentially longer processing time.
+    - Please be patient, as the application will take more time to process and import one million records.
 
 These instructions will guide you through the process of using the web application to upload, process, and update CSV files. Remember to download the provided CSV files, **run queue jobs**, **run websockets server** and follow the steps in sequence for a complete demonstration of the application's capabilities.
 
