@@ -21,7 +21,7 @@ class ProcessUpdate implements ShouldQueue
 
     private $rows;
     private $header;
-    public $batch;
+    // public $batch;
 
     /**
      * The number of seconds the job can run before timing out.
@@ -37,7 +37,7 @@ class ProcessUpdate implements ShouldQueue
     {
         $this->rows = $rows;
         $this->header = $header;
-        $this->batch = $this->batch();
+        // $this->batch = $this->batch();
     }
 
     /**
@@ -47,38 +47,39 @@ class ProcessUpdate implements ShouldQueue
      */
     public function handle(): void
     {
-        if (!$this->batch->failedJobs && !$this->batch->cancelled()) {
+        if (!$this->batch()->failedJobs && !$this->batch()->cancelled()) {
             $this->updateProducts();
 
-            if ($this->batch->pendingJobs == 1) {
+            if ($this->batch()->pendingJobs == 1) {
                 $this->handleFinishedBatch();
             }
         } else {
+            Log::info("Batch {$this->batch()->id} failed with {$this->batch()->failedJobs} failed jobs and {$this->batch()->pendingJobs} pending jobs.");
             $this->handleFailedBatch();
         }
     }
 
     /**
-     * Handles a failed batch.
+     * Handles a failed batch().
      *
      * @return void
      */
     protected function handleFailedBatch(): void
     {
-        $$this->batch->cancel();
+        $this->batch()->cancel();
         CsvUploadFailed::dispatch(
-            $this->batch->id,
-            $this->batch->progress(),
-            $this->batch->failedJobs,
-            $this->batch->finished(),
-            $this->batch->pendingJobs
+            $this->batch()->id,
+            $this->batch()->progress(),
+            $this->batch()->failedJobs,
+            $this->batch()->finished(),
+            $this->batch()->pendingJobs
         );
     }
 
     /**
      * Updates the products.
      *
-     * Dispatches a CsvUploadProgress event with the batch ID, progress, failed jobs, 
+     * Dispatches a CsvUploadProgress event with the batch() ID, progress, failed jobs, 
      * finished flag, and pending jobs.
      * 
      * Iterates over each row in the rows array and calls the updateProduct function 
@@ -90,16 +91,27 @@ class ProcessUpdate implements ShouldQueue
      */
     protected function updateProducts(): void
     {
-        $batchId = $this->batch->id;
-        $progress = $this->batch->progress();
-        $failedJobs = $this->batch->failedJobs;
-        $finished = $this->batch->finished();
-        $pendingJobs = $this->batch->pendingJobs;
+        $batchId = $this->batch()->id;
+        $progress = $this->batch()->progress();
+        $failedJobs = $this->batch()->failedJobs;
+        $finished = $this->batch()->finished();
+        $pendingJobs = $this->batch()->pendingJobs;
 
         CsvUploadProgress::dispatch($batchId, $progress, $failedJobs, $finished, $pendingJobs);
 
         foreach ($this->rows as $data) {
-            $this->updateProduct($data);
+            try {
+                $this->updateProduct($data);
+            } catch (\Throwable $th) {
+                $this->batch()->cancel();
+                CsvUploadFailed::dispatch(
+                    $this->batch()->id,
+                    $this->batch()->progress(),
+                    $this->batch()->failedJobs,
+                    $this->batch()->finished(),
+                    $this->batch()->pendingJobs
+                );
+            }
         }
 
         CsvUploadProgress::dispatch($batchId, $progress, $failedJobs, $finished, $pendingJobs);
@@ -147,11 +159,11 @@ class ProcessUpdate implements ShouldQueue
     protected function handleFinishedBatch(): void
     {
         CsvUploadFinished::dispatch(
-            $this->batch->id,
-            $this->batch->progress(),
-            $this->batch->failedJobs,
-            $this->batch->finished(),
-            $this->batch->pendingJobs
+            $this->batch()->id,
+            $this->batch()->progress(),
+            $this->batch()->failedJobs,
+            $this->batch()->finished(),
+            $this->batch()->pendingJobs
         );
     }
 }
