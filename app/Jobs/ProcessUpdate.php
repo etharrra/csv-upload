@@ -100,18 +100,7 @@ class ProcessUpdate implements ShouldQueue
         CsvUploadProgress::dispatch($batchId, $progress, $failedJobs, $finished, $pendingJobs);
 
         foreach ($this->rows as $data) {
-            try {
-                $this->updateProduct($data);
-            } catch (\Throwable $th) {
-                $this->batch()->cancel();
-                CsvUploadFailed::dispatch(
-                    $this->batch()->id,
-                    $this->batch()->progress(),
-                    $this->batch()->failedJobs,
-                    $this->batch()->finished(),
-                    $this->batch()->pendingJobs
-                );
-            }
+            $this->updateProduct($data);
         }
 
         CsvUploadProgress::dispatch($batchId, $progress, $failedJobs, $finished, $pendingJobs);
