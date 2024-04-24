@@ -1,6 +1,5 @@
-# CSV Upload test one test two
-test three
-test four
+# CSV Upload
+
 The **CSV Upload** project is a Laravel-based web application designed to streamline the process of uploading CSV files, processing their data, and storing it in a database. The application leverages Laravel's queue system for efficient background job processing and utilizes WebSockets to provide users with real-time updates on the progress of their data upload.
 
 ## Table of Contents
