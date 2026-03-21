@@ -4,25 +4,25 @@ The **CSV Upload** project is a Laravel-based web application designed to stream
 
 ## Table of Contents
 
--   [Prerequisites](#prerequisites)
--   [Getting Started](#getting-started)
--   [Configuration](#configuration)
--   [Running Queue Workers](#running-queue-workers)
--   [Running Websockets Server](#running-websockets-server)
--   [Usage](#usage)
--   [Features](#features)
--   [Contributing](#contributing)
--   [License](#license)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Running Queue Workers](#running-queue-workers)
+- [Running Websockets Server](#running-websockets-server)
+- [Usage](#usage)
+- [Features](#features)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Prerequisites
 
 Before you begin, ensure you have the following prerequisites installed on your system:
 
--   [PHP](https://www.php.net/) (v8.1 or higher)
--   [Composer](https://getcomposer.org/) (v2 or higher)
--   [Node.js](https://nodejs.org/) (v18 or higher)
--   [npm](https://www.npmjs.com/) (v9 or higher)
--   [MySQL Database](https://www.mysql.com/)
+- [PHP](https://www.php.net/) (v8.1 or higher)
+- [Composer](https://getcomposer.org/) (v2 or higher)
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [npm](https://www.npmjs.com/) (v9 or higher)
+- [MySQL Database](https://www.mysql.com/)
 
 You can verify the installed versions by running the following commands:
 
@@ -101,13 +101,13 @@ php artisan websockets:serve
 
 ## Configuration
 
--   Update the `.env` file with your database credentials.
-    -   `DB_CONNECTION`: Set this to your database connection type (e.g., `mysql`).
-    -   `DB_HOST`: Specify the database host (e.g., `127.0.0.1`).
-    -   `DB_PORT`: Set the database port (e.g., `3306` for MySQL).
-    -   `DB_DATABASE`: Enter the name of your database (e.g., `laravel`).
-    -   `DB_USERNAME`: Provide your database username (e.g., `root`).
-    -   `DB_PASSWORD`: Enter the corresponding password for the database user. If your database has no password, leave this field empty.
+- Update the `.env` file with your database credentials.
+  - `DB_CONNECTION`: Set this to your database connection type (e.g., `mysql`).
+  - `DB_HOST`: Specify the database host (e.g., `127.0.0.1`).
+  - `DB_PORT`: Set the database port (e.g., `3306` for MySQL).
+  - `DB_DATABASE`: Enter the name of your database (e.g., `laravel`).
+  - `DB_USERNAME`: Provide your database username (e.g., `root`).
+  - `DB_PASSWORD`: Enter the corresponding password for the database user. If your database has no password, leave this field empty.
 
 ## Usage Instructions
 
@@ -154,12 +154,12 @@ These instructions will guide you through the process of using the web applicati
 
 ## Web Application Features
 
--   **CSV File Upload**: Easily upload CSV files through the web interface.
+- **CSV File Upload**: Easily upload CSV files through the web interface.
 
--   **Real-Time Progress Tracking**: The application provides live updates on data import progress with a percentage completion indicator.
+- **Real-Time Progress Tracking**: The application provides live updates on data import progress with a percentage completion indicator.
 
--   **Data Update**: The application supports data updates using unique keys from the `yoprint_test_updated.csv` file, enabling efficient data maintenance.
+- **Data Update**: The application supports data updates using unique keys from the `yoprint_test_updated.csv` file, enabling efficient data maintenance.
 
--   **Error Handling**: It effectively handles errors in data processing, as demonstrated when uploading `yoprint_test_import - Failed.csv`, with the status of the file changed to "failed."
+- **Error Handling**: It effectively handles errors in data processing, as demonstrated when uploading `yoprint_test_import - Failed.csv`, with the status of the file changed to "failed."
 
 These features make the web application a robust tool for managing and processing CSV data with real-time feedback and error handling capabilities.

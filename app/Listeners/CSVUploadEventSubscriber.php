@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Enums\FileStatus;
 use App\Events\CsvUploadFailed;
 use App\Events\CsvUploadFinished;
 use App\Events\CsvUploadProgress;
@@ -12,40 +13,40 @@ use Illuminate\Support\Facades\Log;
 class CSVUploadEventSubscriber
 {
     /**
-     * Handle user CsvUploadProgress events.
+     * Handle CsvUploadProgress events.
      */
-    public function handleCsvUploadProgress($event): void
+    public function handleCsvUploadProgress(CsvUploadProgress $event): void
     {
-        $batchId = $event->batch_arr['batchId'];
-        $file = File::where('job_batch_id', $batchId)->first();
-        if ($file && $file->status == 0) {
-            $file->status = 1;
+        $file = File::where('job_batch_id', $event->batch_arr['batchId'])->first();
+
+        if ($file && $file->status === FileStatus::Pending) {
+            $file->status = FileStatus::Processing;
             $file->save();
         }
     }
 
     /**
-     * Handle user CsvUploadFinished events.
+     * Handle CsvUploadFinished events.
      */
-    public function handleCsvUploadFinished($event): void
+    public function handleCsvUploadFinished(CsvUploadFinished $event): void
     {
-        $batchId = $event->batch_arr['batchId'];
-        $file = File::where('job_batch_id', $batchId)->first();
-        if ($file->status == 1) {
-            $file->status = 3;
+        $file = File::where('job_batch_id', $event->batch_arr['batchId'])->first();
+
+        if ($file && $file->status === FileStatus::Processing) {
+            $file->status = FileStatus::Completed;
             $file->save();
         }
     }
 
     /**
-     * Handle user CsvUploadFailed events.
+     * Handle CsvUploadFailed events.
      */
-    public function handleCsvUploadFailed($event): void
+    public function handleCsvUploadFailed(CsvUploadFailed $event): void
     {
-        $batchId = $event->batch_arr['batchId'];
-        $file = File::where('job_batch_id', $batchId)->first();
+        $file = File::where('job_batch_id', $event->batch_arr['batchId'])->first();
+
         if ($file) {
-            $file->status = 2;
+            $file->status = FileStatus::Failed;
             $file->save();
         }
     }

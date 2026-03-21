@@ -10,20 +10,6 @@ class Product extends Model
     use HasFactory;
 
     /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'products';
-
-    /**
-     * The primary key associated with the table.
-     *
-     * @var string
-     */
-    protected $primaryKey = 'id';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -36,6 +22,15 @@ class Product extends Model
         'sanmar_mainframe_color',
         'size',
         'color_name',
-        'piece_price'
+        'piece_price',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'piece_price' => 'decimal:2',
     ];
 }

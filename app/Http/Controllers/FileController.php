@@ -2,41 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\CsvFileUploaded;
 use App\Http\Requests\FileUploadRequest;
-use App\Models\File;
 use App\Services\FileService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
+use Illuminate\View\View;
 
 class FileController extends Controller
 {
-
-    protected $fileService;
-
-    public function __construct(FileService $fileService)
-    {
-        $this->fileService = $fileService;
-    }
+    public function __construct(
+        protected FileService $fileService
+    ) {}
 
     /**
-     * Index function.
+     * Display a listing of uploaded files.
      *
-     * @return void
+     * @return View
      */
-    public function index()
+    public function index(): View
     {
-        $files = File::all();
+        $files = $this->fileService->getFiles();
+
         return view('welcome', ['files' => $files]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Store a newly uploaded file and dispatch processing.
+     *
+     * @param FileUploadRequest $request
+     * @return RedirectResponse
      */
-    public function store(FileUploadRequest $request)
+    public function store(FileUploadRequest $request): RedirectResponse
     {
-        $uploadedFile = $request->file('file');
+        try {
+            $uploadedFile = $request->file('file');
+            $file = $this->fileService->processAndStoreFile($uploadedFile);
 
-        // Process and store the file using the FileService
-        $file = $this->fileService->processAndStoreFile($uploadedFile);
+            // Broadcast the file upload event
+            CsvFileUploaded::dispatch(
+                $file->name_og,
+                $file->job_batch_id,
+                $file->id,
+                $file->created_at->toISOString()
+            );
 
-        return redirect('/')->with('success-msg', 'File Upload Success!');
+            return redirect()->route('files.index')->with('success-msg', 'File Upload Success!');
+        } catch (\Throwable $e) {
+            Log::error('File upload failed: ' . $e->getMessage(), ['exception' => $e]);
+
+            return redirect()->route('files.index')->with('error-msg', 'File upload failed. Please try again.');
+        }
     }
 }

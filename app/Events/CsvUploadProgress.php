@@ -3,29 +3,9 @@
 namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
-use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
-use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Bus;
 
-class CsvUploadProgress implements ShouldBroadcastNow
+class CsvUploadProgress extends BaseCsvUploadEvent
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
-
-    public $batch_arr;
-
-    /**
-     * Create a new event instance.
-     */
-    public function __construct($batchId, $progress, $failedJobs, $finished, $pendingJobs)
-    {
-        $this->batch_arr = compact('batchId', 'progress', 'failedJobs', 'finished', 'pendingJobs');
-    }
-
     /**
      * Get the channels the event should broadcast on.
      *
@@ -43,15 +23,8 @@ class CsvUploadProgress implements ShouldBroadcastNow
      *
      * @return string
      */
-    public function broadcastAs()
+    public function broadcastAs(): string
     {
         return 'csv-upload-progress';
-    }
-
-    public function broadcastWith()
-    {
-        return [
-            'batch' => $this->batch_arr,
-        ];
     }
 }
