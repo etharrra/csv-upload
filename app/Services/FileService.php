@@ -2,43 +2,50 @@
 
 namespace App\Services;
 
-use App\Jobs\ProcessUpdate;
+use App\Enums\FileStatus;
 use App\Models\File;
+use Illuminate\Bus\Batch;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Bus;
-use App\Services\JobBatchService;
 
 class FileService
 {
-    protected $jobBatchService;
+    public function __construct(
+        protected JobBatchService $jobBatchService
+    ) {}
 
-    public function __construct(JobBatchService $jobBatchService)
+    /**
+     * Retrieve paginated file records, newest first.
+     *
+     * @param int $perPage
+     * @return LengthAwarePaginator
+     */
+    public function getFiles(int $perPage = 15): LengthAwarePaginator
     {
-        $this->jobBatchService = $jobBatchService;
-    }
-
-    public function processAndStoreFile(UploadedFile $uploadedFile)
-    {
-        $fileData = $this->processFile($uploadedFile);
-        $batch = $this->jobBatchService->dispatchFileProcessing($fileData);
-        $file = $this->storeFileRecord(
-            $batch,
-            $fileData['csv_name'],
-            $fileData['csv_name_og'],
-            $fileData['csv_size']
-        );
-
-        return $file;
+        return File::latest()->paginate($perPage);
     }
 
     /**
-     * Process the uploaded file.
+     * Process an uploaded CSV and dispatch batch jobs.
+     *
+     * @param UploadedFile $uploadedFile
+     * @return File
+     */
+    public function processAndStoreFile(UploadedFile $uploadedFile): File
+    {
+        $fileData = $this->processFile($uploadedFile);
+        $batch = $this->jobBatchService->dispatchFileProcessing($fileData);
+
+        return $this->storeFileRecord($batch, $fileData);
+    }
+
+    /**
+     * Process the uploaded file into structured data.
      *
      * @param UploadedFile $uploadedFile The uploaded file to be processed
-     * @throws Some_Exception_Class Description of exception
-     * @return array Returns an array containing the processed data
+     * @return array Returns an array containing csv_name, csv_name_og, csv_size, and data
      */
-    protected function processFile(UploadedFile $uploadedFile)
+    protected function processFile(UploadedFile $uploadedFile): array
     {
         $csv_name_og = $uploadedFile->getClientOriginalName();
         $csv_name = $csv_name_og . '_' . uniqid() . '_' . time();
@@ -51,35 +58,31 @@ class FileService
     }
 
     /**
-     * Stores the file record in the database.
+     * Stores the file record in the database using mass assignment.
      *
-     * @param mixed $batch The batch object.
-     * @param string $csv_name The name of the CSV file.
-     * @param string $csv_name_og The original name of the CSV file.
-     * @param int $csv_size The size of the CSV file.
+     * @param Batch $batch The dispatched batch.
+     * @param array $fileData Processed file metadata.
      * @return File The saved file record.
      */
-    protected function storeFileRecord($batch, $csv_name, $csv_name_og, $csv_size)
+    protected function storeFileRecord(Batch $batch, array $fileData): File
     {
-        $file = new File();
-        $file->name = $csv_name;
-        $file->name_og = $csv_name_og;
-        $file->file_size = $csv_size;
-        $file->status = 0;
-        $file->job_batch_id = $batch->id;
-        $file->save();
-
-        return $file;
+        return File::create([
+            'name' => $fileData['csv_name'],
+            'name_og' => $fileData['csv_name_og'],
+            'file_size' => $fileData['csv_size'],
+            'status' => FileStatus::Pending,
+            'job_batch_id' => $batch->id,
+        ]);
     }
 
     /**
-     * Removes any non-UTF8 characters from the given text.
+     * Removes any non-UTF8 characters from the given data.
      *
-     * @param string $text The text to remove non-UTF8 characters from.
-     * @return string The text with non-UTF8 characters removed.
+     * @param array|string $data The data to sanitize.
+     * @return array|string The sanitized data.
      */
-    private function removeNonUTF8Characters($text)
+    private function removeNonUTF8Characters(array|string $data): array|string
     {
-        return mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        return mb_convert_encoding($data, 'UTF-8', 'UTF-8');
     }
 }

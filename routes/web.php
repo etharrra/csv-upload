@@ -14,5 +14,5 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', [FileController::class, 'index']);
-Route::post('/upload', [FileController::class, 'store']);
+Route::get('/', [FileController::class, 'index'])->name('files.index');
+Route::post('/upload', [FileController::class, 'store'])->name('files.upload');
