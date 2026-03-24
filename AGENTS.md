@@ -1,25 +1,339 @@
 # Repository Guidelines
 
+## Project Overview
+This is a Laravel 10 application for CSV file upload and processing. It uses Laravel Horizon for queue management, Laravel WebSockets for real-time progress updates, and Redis for queuing and caching.
+
 ## Project Structure & Module Organization
-Use `app/` for Laravel business logic: controllers, jobs, models, and services live there, while `app/Http` groups middleware and request classes. Routes belong to `routes/*.php` (mainly `routes/web.php`). Blade views appear under `resources/views`, UI assets and entry points in `resources/js` plus any Livewire/Alpine tied files. Static assets ship via `public/`, and compiled outputs land in `public/build` when `npm run build` runs. Migration, factory, and seeder sources stay in `database/`; tests sit under `tests/Feature` and `tests/Unit` mirroring the corresponding folders in `app/`. `storage/` holds logs, queue work, and filesystem disks; keep it writable but do not commit generated files. Composer-managed code lives in `vendor/` and should not be modified directly.
+
+```
+app/
+├── Console/          # Console commands and kernel
+├── Enums/            # PHP enums (e.g., FileStatus)
+├── Events/           # Broadcast events for WebSocket updates
+├── Exceptions/       # Custom exception handlers
+├── Http/
+│   ├── Controllers/  # HTTP controllers
+│   ├── Middleware/   # Request middleware
+│   ├── Requests/     # Form request validation classes
+│   └── Kernel.php    # HTTP kernel configuration
+├── Jobs/             # Queue jobs (implement ShouldQueue)
+├── Listeners/        # Event listeners
+├── Models/           # Eloquent models
+├── Providers/        # Service providers
+└── Services/         # Business logic services
+
+database/
+├── factories/        # Model factories for testing
+├── migrations/       # Database migrations
+└── seeders/          # Database seeders
+
+resources/
+├── js/               # Frontend JavaScript (Vite entry points)
+└── views/            # Blade templates
+
+routes/
+├── web.php           # Web routes
+├── api.php           # API routes
+├── channels.php      # Broadcasting channels
+└── console.php       # Console commands
+
+tests/
+├── Feature/          # Feature tests (HTTP, integration)
+└── Unit/             # Unit tests (isolated class tests)
+```
 
 ## Build, Test, and Development Commands
-- `composer install` – installs PHP dependencies defined in `composer.json`.
-- `npm install` – pulls frontend tooling from `package.json`/`package-lock.json`.
-- `npm run build` – compiles and bundles the UI assets for production (`vite` under `resources/js`).
-- `php artisan key:generate` and `php artisan migrate` – run once after copying `.env.example` to `.env` during setup.
-- `php artisan serve` – boots the PHP dev server (default port 8000). Keep this running while developing the upload UI.
-- `php artisan queue:work` – starts the worker for CSV processing jobs; restart after code changes affecting jobs.
-- `php artisan websockets:serve` – runs the WebSocket server for realtime progress updates.
 
-## Coding Style & Naming Conventions
-Follow PSR-12: 4-space indentation, bracketed control structures, and descriptive names. All classes live under the `App` namespace (use `php artisan make:...`). Models are singular (`CsvRecord`), controllers suffix `Controller`, jobs end with `Job`, etc. Use `laravel/pint` (`./vendor/bin/pint`) before commits to autoformat PHP/Blade files; run `npm run lint` if you add new JS/CSS logic.
+### Initial Setup
+```bash
+# Install PHP dependencies
+composer install
 
-## Testing Guidelines
-Tests live in `tests/Feature` for HTTP/behavior flows and `tests/Unit` for isolated classes. Name files like `CsvImportTest.php` and give each method a self-documenting name (e.g., `test_handles_missing_headers`). Run `./vendor/bin/phpunit` or `php artisan test`; pass `--filter` to narrow runs. Update or add tests that cover your CSV parsing, queue jobs, and broadcast events whenever you touch those areas.
+# Install frontend dependencies
+npm install
 
-## Commit & Pull Request Guidelines
-Keep commit messages short, imperative, and scoped (e.g., `feat: add queue retry logging`). Reference the issue or ticket when available, note breaking changes, and mention relevant migrations or env changes. For PRs, include a summary, the testing steps you executed, links to related issues, and screenshots if UI changes occurred. Call out any manual setup (queues, websockets) reviewers must perform before testing.
+# Copy environment file and generate key
+cp .env.example .env && php artisan key:generate
 
-## Security & Configuration Tips
-Never commit `.env`. Rebuild config caches (`php artisan config:clear`) after editing env vars. Protect queue credentials by staging a dedicated `.env.testing` if needed, and ensure `DB_PASSWORD` is not logged. Restart workers/websockets after env or migration changes so new values take effect.
+# Run database migrations
+php artisan migrate
+```
+
+### Docker Development (Recommended)
+```bash
+# Start all services (Laravel, MySQL, Redis, Queue, WebSocket)
+docker compose up -d --build
+
+# View container logs
+docker compose logs -f
+
+# Stop all containers
+docker compose down
+
+# Run artisan commands in container
+docker compose exec laravel php artisan migrate
+```
+
+### Development Servers (Non-Docker)
+```bash
+# PHP development server
+php artisan serve
+
+# Frontend hot reload (Vite)
+npm run dev
+
+# Queue worker (restart after job code changes)
+php artisan queue:work
+
+# WebSocket server for real-time updates
+php artisan websockets:serve
+
+# Horizon dashboard (optional, for queue monitoring)
+php artisan horizon
+```
+
+### Build Commands
+```bash
+# Build frontend assets for production
+npm run build
+```
+
+### Linting & Code Style
+```bash
+# Format PHP code (must run before commits)
+./vendor/bin/pint
+
+# Check code style without modifying
+./vendor/bin/pint --test
+```
+
+### Testing
+```bash
+# Run all tests
+php artisan test
+# OR
+./vendor/bin/phpunit
+
+# Run only feature tests
+php artisan test --testsuite=Feature
+
+# Run only unit tests
+php artisan test --testsuite=Unit
+
+# Run a specific test file
+php artisan test tests/Feature/FileUploadTest.php
+
+# Run a specific test method
+php artisan test --filter test_file_upload_success
+
+# Run tests with parallel execution
+php artisan test --parallel
+
+# Run tests with coverage report
+php artisan test --coverage
+```
+
+### Database &Cache Commands
+```bash
+# Run pending migrations
+php artisan migrate
+
+# Rollback last migration
+php artisan migrate:rollback
+
+# Clear application cache
+php artisan config:clear
+php artisan cache:clear
+
+# Clear all caches (config, route, view)
+php artisan optimize:clear
+```
+
+## Coding Style & Conventions
+
+### PHP Style (PSR-12)
+- **Indentation**: 4spaces (no tabs)
+- **Opening brace**: Same line for classes/methods
+- **Namespace**: One blank line after `<?php`
+- **Use statements**: One per line, alphabetically sorted
+
+```php
+<?php
+
+namespace App\Services;
+
+use App\Enums\FileStatus;
+use App\Models\File;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+
+class FileService
+{
+    // ...
+}
+```
+
+### Imports
+- Group imports by type: framework first, then project classes
+- Always import classes at the top of the file
+- Use fully qualified names for facades only when necessary
+
+```php
+use App\Enums\FileStatus;        // Project classes first
+use App\Models\File;
+use Illuminate\Bus\Batch;         // Framework classes second
+use Illuminate\Support\Facades\Log;
+```
+
+### Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Classes | PascalCase | `FileController` |
+| Methods | camelCase | `processFile()` |
+| Properties | camelCase | `$fileName` |
+| Constants | UPPER_SNAKE | `MAX_ATTEMPTS` |
+| Variables | camelCase | `$uploadedFile` |
+| Database tables | snake_case | `files`, `products` |
+| Migrations | snake_case with timestamp | `2024_01_15_create_files_table` |
+| Jobs | Descriptive noun + verb | `ProcessUpdate` |
+| Events | Past tense or noun | `CsvFileUploaded`, `CsvUploadProgress` |
+| Enums | PascalCase case names | `FileStatus::Processing` |
+
+### Type Declarations
+- Always use return type declarations
+- Use parameter types in method signatures
+- Use union types when needed (`int|false`)
+- Use `readonly` for constructor property promotion in PHP 8.1+
+
+```php
+public function __construct(
+    private readonly array $rows,
+    private readonly array $header
+) {}
+
+public function headerIndex(string $columnName): int|false
+{
+    return array_search($columnName, $this->header);
+}
+```
+
+### Error Handling
+- Use try-catch in controllers to catch exceptions and log errors
+- Log errors with context using `Log::error()`
+- Return user-friendly error messages, never expose stack traces
+
+```php
+public function store(FileUploadRequest $request): RedirectResponse
+{
+    try {
+        $file = $this->fileService->processAndStoreFile($request->file('file'));
+        return redirect()->route('files.index')->with('success-msg', 'Success!');
+    } catch (\Throwable $e) {
+        Log::error('File upload failed: ' . $e->getMessage(), ['exception' => $e]);
+        return redirect()->route('files.index')->with('error-msg', 'Upload failed.');
+    }
+}
+```
+
+### Service Classes Pattern
+- Services handle business logic and should be injected via constructor
+- Use constructor property promotion for dependency injection
+- Return typed values from service methods
+
+```php
+class FileService
+{
+    public function __construct(
+        protected JobBatchService $jobBatchService
+    ) {}
+
+    public function getFiles(int $perPage = 15): LengthAwarePaginator
+    {
+        return File::latest()->paginate($perPage);
+    }
+}
+```
+
+### Form Request Validation
+- Use Form Request classes for validation, not inline validation
+- Separate `authorize()` and `rules()` methods
+
+```php
+class FileUploadRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'file' => 'required|file|mimes:csv,xlsx,xls',
+        ];
+    }
+}
+```
+
+### Jobs Pattern
+- Implement `ShouldQueue` for async processing
+- Use `Batchable` trait for job batches
+- Check if batch is cancelled before processing
+
+```php
+class ProcessUpdate implements ShouldQueue
+{
+    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public function handle(): void
+    {
+        if ($this->batch()?->cancelled()) {
+            return;
+        }
+        // Process job...
+    }
+}
+```
+
+### Events & Broadcasting
+- Use events for decoupled communication
+- Events broadcasting progress should implement `ShouldBroadcastNow`
+- Use base event classes for shared functionality
+
+```php
+abstract class BaseCsvUploadEvent implements ShouldBroadcastNow
+{
+    public function broadcastWith(): array
+    {
+        return ['batch' => $this->batch_arr];
+    }
+}
+```
+
+## Security Best Practices
+- Never commit `.env` or `.env.*` files
+- Use Form Request classes for validation and authorization
+- Sanitize file uploads (check mime types, size limits)
+- Never expose internal errors to users
+- Always validate file uploads with `mimes` and size rules
+- Use CSRF protection (built into Laravel web routes)
+
+## Queue & WebSocket Notes
+- Restart queue workers after changing job code: `php artisan queue:restart`
+- WebSocket server must be running for real-time progress: `php artisan websockets:serve`
+- Use Redis for queue driver in production (`QUEUE_CONNECTION=redis`)
+- Redis must be running before starting queue workers
+
+## Git Commit Guidelines
+- Use conventional commits format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`
+- Keep commits atomic and focused
+- Reference issue numbers when applicable
+- Run `./vendor/bin/pint` before committing
+
+## Environment Variables
+Key environment variables for this project:
+- `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` - Database connection
+- `REDIS_HOST` - Redis connection for queues
+- `QUEUE_CONNECTION=redis` - Queue driver
+- `BROADCAST_DRIVER=pusher` - Broadcasting driver
+- `PUSHER_*` - WebSocket/Pusher configuration
