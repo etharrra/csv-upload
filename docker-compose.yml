@@ -1,7 +1,7 @@
 services:
   laravel:
     build:
-      context: ./docker/8.2
+      context: ./docker/8.3
       dockerfile: Dockerfile
       args:
         WWWGROUP: ${WWWGROUP:-1000}
@@ -31,8 +31,10 @@ services:
     networks:
       - sail
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]
       retries: 3

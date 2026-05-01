@@ -19,6 +19,8 @@ class File extends Model
         'name',
         'name_og',
         'file_size',
+        'storage_disk',
+        'storage_path',
         'status',
         'publish_datetime',
         'job_batch_id',

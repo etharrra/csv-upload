@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+if [ ! -z "$WWWUSER" ]; then
+    usermod -u $WWWUSER sail
+fi
+
+if [ ! -d /.composer ]; then
+    mkdir /.composer
+fi
+
+chmod -R ugo+rw /.composer
+
+wait_for_service() {
+    local name="$1"
+    local host="$2"
+    local port="$3"
+    local attempts="${4:-60}"
+
+    if [ -z "$host" ] || [ -z "$port" ]; then
+        return
+    fi
+
+    echo "Waiting for $name at $host:$port..."
+
+    for i in $(seq 1 "$attempts"); do
+        if timeout 1 bash -c "</dev/tcp/$host/$port" 2>/dev/null; then
+            echo "$name is available."
+            return
+        fi
+
+        sleep 1
+    done
+
+    echo "Timed out waiting for $name at $host:$port."
+}
+
+if [ $# -gt 0 ]; then
+    exec gosu $WWWUSER "$@"
+else
+    wait_for_service "MySQL" "${DB_HOST:-mysql}" "${DB_PORT:-3306}"
+    wait_for_service "Redis" "${REDIS_HOST:-redis}" "${REDIS_PORT:-6379}"
+
+    exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+fi

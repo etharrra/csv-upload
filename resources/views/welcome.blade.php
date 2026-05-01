@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ config('app.name') }}</title>
 
@@ -57,10 +58,10 @@
 
 
             <div class="flex justify-center">
-                <form action="{{ route('files.upload') }}" method="post" enctype="multipart/form-data" class="w-full p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex justify-between">
+                <form action="{{ route('files.upload') }}" method="post" enctype="multipart/form-data" data-presign-url="{{ route('files.presign') }}" data-cancel-url-template="{{ url('/uploads/__FILE_ID__/cancel') }}" class="w-full p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex justify-between">
                     @csrf
                     <div class="upload-container">
-                        <input type="file" name="file" id="csv_input" accept=".xlsx, .xls, .csv" required />
+                        <input type="file" name="file" id="csv_input" accept=".csv" required />
                         <figure>
                             <img src="{{ asset('img/upload-icon.png') }}" alt="upload">
                         </figure>
@@ -130,7 +131,5 @@
         </div>
     </div>
 </body>
-
-<script src="{{ Vite::asset('resources/js/app.js') }}"></script>
 
 </html>

@@ -4,8 +4,6 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -18,8 +16,10 @@ class CsvFileUploaded implements ShouldBroadcastNow
         public string $fileName,
         public string $batchId,
         public string $fileId,
-        public string $uploadedAt
-    ) {}
+        public string $uploadedAt,
+        public string $status = 'Pending'
+    ) {
+    }
 
     public function broadcastOn(): array
     {
@@ -40,7 +40,7 @@ class CsvFileUploaded implements ShouldBroadcastNow
             'batchId' => $this->batchId,
             'fileId' => $this->fileId,
             'uploadedAt' => $this->uploadedAt,
-            'status' => 'Pending'
+            'status' => $this->status,
         ];
     }
 }

@@ -31,4 +31,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'aws' => [
+        'key' => env('AWS_ACCESS_KEY_ID'),
+        'secret' => env('AWS_SECRET_ACCESS_KEY'),
+        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+        'upload_prefix' => env('AWS_UPLOAD_PREFIX', 'csv-uploads'),
+        'presign_ttl_minutes' => env('AWS_PRESIGN_TTL_MINUTES', 10),
+        's3_upload_notification_queue_url' => env('AWS_S3_UPLOAD_NOTIFICATION_QUEUE_URL'),
+    ],
+
 ];
