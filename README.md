@@ -20,6 +20,41 @@ Laravel 10 application for CSV upload and processing with queued background jobs
 - Update existing records from follow-up CSV uploads
 - Mark failed imports when the input file is invalid
 
+## System Architecture Diagram
+
+```mermaid
+flowchart LR
+    U["User Browser"] -- HTTP --> A["Laravel App"]
+    U <-- WS progress updates --> W["WebSocket Server"]
+    A -- Presigned upload --> S3[("S3")]
+    S3 -- Upload Noti --> SQS[("SQS")]
+    SQS --> SL["SQS Listener"]
+    SL -- Trigger --> B["Background Jobs"]
+    B -- Get the file --> S3
+    B --> M["MySQL"] & W
+```
+
+## User Workflow Diagram
+
+```mermaid
+flowchart TD
+    A[User opens upload page] --> B[Laravel renders page]
+    B --> C[User selects CSV file]
+    C --> D[App requests presigned S3 upload URL]
+    D --> E[Laravel generates presigned URL]
+    E --> F[Browser uploads CSV directly to S3]
+    F --> G[S3 sends object-created notification to SQS]
+    G --> H[S3 notification poller reads SQS message]
+    H --> I[Poller matches uploaded file record]
+    I --> J[Poller dispatches CSV processing jobs]
+    J --> K[Queue worker processes CSV in background]
+    K --> L[Data inserted or updated in MySQL]
+    K --> M[Progress broadcast over WebSocket]
+    M --> N[Browser shows live progress updates]
+    L --> O[Processing completes]
+    O --> P[User sees final success or failure status]
+```
+
 ## Prerequisites
 
 For local non-Docker development:
@@ -97,6 +132,64 @@ PUSHER_SCHEME=http
 ```
 
 Inside Docker containers, use Compose service names such as `mysql` and `redis`. From the browser, connect to the WebSocket host exposed on your machine.
+
+## AWS S3 And SQS Setup
+
+This project supports direct CSV uploads to AWS S3 and background processing triggered from S3 upload notifications delivered through Amazon SQS.
+
+Set these environment variables when using AWS storage:
+
+```env
+FILESYSTEM_DISK=s3
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_DEFAULT_REGION=ap-southeast-1
+AWS_BUCKET=
+AWS_UPLOAD_PREFIX=csv-uploads
+AWS_PRESIGN_TTL_MINUTES=10
+AWS_S3_UPLOAD_NOTIFICATION_QUEUE_URL=
+AWS_USE_PATH_STYLE_ENDPOINT=false
+AWS_ENDPOINT=
+AWS_URL=
+```
+
+What each setting is used for:
+
+- `FILESYSTEM_DISK=s3` stores uploaded files on the S3 disk instead of local storage.
+- `AWS_BUCKET` is the bucket used for uploaded CSV files.
+- `AWS_UPLOAD_PREFIX` is the folder prefix used when generating upload paths.
+- `AWS_PRESIGN_TTL_MINUTES` controls how long presigned upload URLs stay valid.
+- `AWS_S3_UPLOAD_NOTIFICATION_QUEUE_URL` points to the SQS queue consumed by `php artisan s3:poll-upload-notifications`.
+- `AWS_ENDPOINT` and `AWS_USE_PATH_STYLE_ENDPOINT=true` are useful for S3-compatible local services such as LocalStack or MinIO.
+
+Expected AWS wiring:
+
+1. The app generates a presigned upload target for S3.
+2. The client uploads the CSV to S3.
+3. The S3 bucket sends object-created notifications to an SQS queue.
+4. The app polls that queue and starts CSV processing for matching uploaded files.
+
+The queue poller can be run manually outside Docker:
+
+```bash
+php artisan s3:poll-upload-notifications
+```
+
+Inside Docker it is already started by Supervisor in the `laravel` container.
+
+If you want Laravel's queue driver itself to use Amazon SQS instead of Redis, Laravel's standard queue settings are also available in `config/queue.php`:
+
+```env
+QUEUE_CONNECTION=sqs
+SQS_PREFIX=https://sqs.<region>.amazonaws.com/<account-id>
+SQS_QUEUE=default
+SQS_SUFFIX=
+AWS_DEFAULT_REGION=ap-southeast-1
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+```
+
+That is separate from `AWS_S3_UPLOAD_NOTIFICATION_QUEUE_URL`. In the current Docker-oriented setup, the app queue driver defaults to Redis while S3 upload notifications are polled from SQS.
 
 ## Common Commands
 
