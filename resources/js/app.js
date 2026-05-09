@@ -3,11 +3,53 @@ import "./bootstrap";
 // File input change handler
 const csv_input = document.querySelector("#csv_input");
 const alert_close = document.querySelectorAll(".alert_close");
+const uploadForm = csv_input?.closest("form");
+const uploadButton = uploadForm?.querySelector('button[type="submit"]');
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+let uploadInProgress = false;
 
 csv_input?.addEventListener("change", () => {
     if (csv_input.files.length) {
         let file_name = csv_input.files[0].name;
         document.querySelector(".upload-container p").innerHTML = file_name;
+    }
+});
+
+uploadForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (uploadInProgress) {
+        return;
+    }
+
+    const file = csv_input?.files?.[0];
+    let upload = null;
+
+    if (!file) {
+        showUploadAlert("Please choose a CSV file first.", "error");
+        return;
+    }
+
+    uploadInProgress = true;
+    setUploadState(true, "Preparing...");
+
+    try {
+        upload = await requestPresignedUpload(file);
+
+        setUploadState(true, "Uploading...");
+        await uploadToS3(upload, file);
+
+        upsertPendingFileRow(upload.file);
+        showUploadAlert("File uploaded. Processing will start after AWS confirms the upload.", "success");
+        uploadForm.reset();
+        document.querySelector(".upload-container p").innerHTML = "Click or drop file here";
+    } catch (error) {
+        console.error("Upload failed:", error);
+        await cancelPendingUpload(upload);
+        showUploadAlert(error.message || "Upload failed. Please try again.", "error");
+    } finally {
+        uploadInProgress = false;
+        setUploadState(false, "Upload");
     }
 });
 
@@ -79,11 +121,19 @@ function addNewFileToTable(event) {
         noFilesRow.closest("tr").remove();
     }
 
-    // Check if file already exists to avoid duplicates
+    const pendingCell = document.getElementById(`file-id-${event.fileId}`);
+    if (pendingCell) {
+        pendingCell.id = `job-id-${event.batchId}`;
+        pendingCell.innerHTML = event.status;
+        pendingCell.className = "";
+        replayPendingBatchEvent(event.batchId);
+        return; // File already in table
+    }
+
     const existingRow = document.getElementById(`job-id-${event.batchId}`);
     if (existingRow) {
         console.log("⚠️ File already in table, skipping");
-        return; // File already in table
+        return;
     }
 
     const tr = document.createElement("tr");
@@ -110,15 +160,137 @@ function addNewFileToTable(event) {
     tbody.insertBefore(tr, tbody.firstChild);
     console.log("✅ Row added to table for batch:", event.batchId);
 
-    // Replay any buffered events for this batch that arrived before the row existed
-    if (window._pendingBatchEvents?.[event.batchId]) {
-        const pending = window._pendingBatchEvents[event.batchId];
+    replayPendingBatchEvent(event.batchId);
+}
+
+async function requestPresignedUpload(file) {
+    const response = await fetch(uploadForm.dataset.presignUrl, {
+        method: "POST",
+        headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": csrfToken,
+        },
+        body: JSON.stringify({
+            name: file.name,
+            size: file.size,
+            type: file.type || "text/csv",
+        }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        const validationMessage = Object.values(error.errors ?? {})
+            .flat()
+            .shift();
+
+        throw new Error(validationMessage || error.message || "Could not prepare the upload.");
+    }
+
+    return response.json();
+}
+
+async function uploadToS3(upload, file) {
+    const response = await fetch(upload.url, {
+        method: "PUT",
+        headers: upload.headers ?? {},
+        body: file,
+    });
+
+    if (!response.ok) {
+        throw new Error("The direct upload to S3 failed.");
+    }
+}
+
+async function cancelPendingUpload(upload) {
+    if (!upload?.fileId || !uploadForm.dataset.cancelUrlTemplate) {
+        return;
+    }
+
+    const url = uploadForm.dataset.cancelUrlTemplate.replace("__FILE_ID__", upload.fileId);
+
+    await fetch(url, {
+        method: "POST",
+        headers: {
+            Accept: "application/json",
+            "X-CSRF-TOKEN": csrfToken,
+        },
+    }).catch((error) => {
+        console.warn("Could not cancel pending upload:", error);
+    });
+}
+
+function upsertPendingFileRow(file) {
+    const tbody = document.querySelector("tbody");
+
+    if (!tbody || document.getElementById(`file-id-${file.id}`)) {
+        return;
+    }
+
+    const noFilesRow = tbody.querySelector('td[colspan="3"]');
+
+    if (noFilesRow) {
+        noFilesRow.closest("tr").remove();
+    }
+
+    const tr = document.createElement("tr");
+    const uploadedAt = new Date(file.createdAt);
+    const formattedDate = uploadedAt.toLocaleString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+    });
+
+    tr.innerHTML = `
+        <td>
+            ${formattedDate} <br>
+            just now
+        </td>
+        <td>${file.name}</td>
+        <td id="file-id-${file.id}">${file.status}</td>
+    `;
+
+    tbody.insertBefore(tr, tbody.firstChild);
+}
+
+function replayPendingBatchEvent(batchId) {
+    if (window._pendingBatchEvents?.[batchId]) {
+        const pending = window._pendingBatchEvents[batchId];
         console.log("🔄 Replaying buffered event:", pending.type);
         if (pending.type === "progress") UpdateProgress(pending.event);
         if (pending.type === "finished") finishProgress(pending.event);
         if (pending.type === "failed") failedProgress(pending.event);
-        delete window._pendingBatchEvents[event.batchId];
+        delete window._pendingBatchEvents[batchId];
     }
+}
+
+function setUploadState(disabled, label) {
+    if (!uploadButton) {
+        return;
+    }
+
+    uploadButton.disabled = disabled;
+    uploadButton.textContent = label;
+}
+
+function showUploadAlert(message, type) {
+    const existingAlerts = document.querySelectorAll("div[role=alert]");
+    existingAlerts.forEach((alert) => alert.remove());
+
+    const alert = document.createElement("div");
+    const styles =
+        type === "success"
+            ? "bg-green-50 border border-green-400 text-green-600"
+            : "bg-red-50 border border-red-300 text-red-600";
+
+    alert.className = `${styles} px-5 py-3 rounded relative mb-3`;
+    alert.setAttribute("role", "alert");
+    alert.innerHTML = `<strong class="font-bold">${message}</strong>`;
+
+    document.querySelector(".max-w-7xl")?.prepend(alert);
 }
 
 function bufferEvent(batchId, type, event) {

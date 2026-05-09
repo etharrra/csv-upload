@@ -16,3 +16,5 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [FileController::class, 'index'])->name('files.index');
 Route::post('/upload', [FileController::class, 'store'])->name('files.upload');
+Route::post('/uploads/presign', [FileController::class, 'presign'])->name('files.presign');
+Route::post('/uploads/{file}/cancel', [FileController::class, 'cancelUpload'])->name('files.cancel-upload');
