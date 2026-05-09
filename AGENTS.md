@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Overview
-This is a Laravel 10 application for CSV file upload and processing. It uses Laravel Horizon for queue management, Laravel WebSockets for real-time progress updates, and Redis for queuing and caching.
+This is a Laravel 10 application for CSV file upload and processing. It uses Redis-backed queues and caching, Laravel WebSockets for real-time progress updates, and Horizon for queue monitoring.
 
 ## Project Structure & Module Organization
 
@@ -28,8 +28,9 @@ database/
 └── seeders/          # Database seeders
 
 resources/
+├── css/              # Frontend styles
 ├── js/               # Frontend JavaScript (Vite entry points)
-└── views/            # Blade templates
+└── views/            # Blade templates and error pages
 
 routes/
 ├── web.php           # Web routes
@@ -52,8 +53,11 @@ composer install
 # Install frontend dependencies
 npm install
 
-# Copy environment file and generate key
-cp .env.example .env && php artisan key:generate
+# Copy environment file
+cp .env.example .env
+
+# Generate application key
+php artisan key:generate
 
 # Run database migrations
 php artisan migrate
@@ -61,8 +65,19 @@ php artisan migrate
 
 ### Docker Development (Recommended)
 ```bash
-# Start all services (Laravel, MySQL, Redis, Queue, WebSocket)
+# Copy Docker environment file
+cp .env.docker .env
+
+# Start all services (Laravel, MySQL, Redis, queue worker, WebSocket server)
 docker compose up -d --build
+
+# Install dependencies inside the app container
+docker compose exec laravel composer install
+docker compose exec laravel npm install
+
+# Generate application key and run migrations
+docker compose exec laravel php artisan key:generate
+docker compose exec laravel php artisan migrate
 
 # View container logs
 docker compose logs -f
@@ -70,7 +85,8 @@ docker compose logs -f
 # Stop all containers
 docker compose down
 
-# Run artisan commands in container
+# Run tests or artisan commands in container
+docker compose exec laravel php artisan test
 docker compose exec laravel php artisan migrate
 ```
 
@@ -82,13 +98,13 @@ php artisan serve
 # Frontend hot reload (Vite)
 npm run dev
 
-# Queue worker (restart after job code changes)
+# Queue worker
 php artisan queue:work
 
 # WebSocket server for real-time updates
 php artisan websockets:serve
 
-# Horizon dashboard (optional, for queue monitoring)
+# Horizon dashboard / worker alternative
 php artisan horizon
 ```
 
@@ -133,7 +149,7 @@ php artisan test --parallel
 php artisan test --coverage
 ```
 
-### Database &Cache Commands
+### Database & Cache Commands
 ```bash
 # Run pending migrations
 php artisan migrate
@@ -147,6 +163,9 @@ php artisan cache:clear
 
 # Clear all caches (config, route, view)
 php artisan optimize:clear
+
+# Restart queue workers after job code changes
+php artisan queue:restart
 ```
 
 ## Coding Style & Conventions
@@ -323,6 +342,7 @@ abstract class BaseCsvUploadEvent implements ShouldBroadcastNow
 - WebSocket server must be running for real-time progress: `php artisan websockets:serve`
 - Use Redis for queue driver in production (`QUEUE_CONNECTION=redis`)
 - Redis must be running before starting queue workers
+- In Docker, Supervisor starts the HTTP server, queue worker, S3 notification poller, and WebSocket server in the `laravel` container
 
 ## Git Commit Guidelines
 - Use conventional commits format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`
@@ -337,3 +357,4 @@ Key environment variables for this project:
 - `QUEUE_CONNECTION=redis` - Queue driver
 - `BROADCAST_DRIVER=pusher` - Broadcasting driver
 - `PUSHER_*` - WebSocket/Pusher configuration
+- `VITE_PUSHER_*` - Frontend WebSocket configuration
