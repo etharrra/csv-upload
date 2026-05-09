@@ -1,165 +1,174 @@
 # CSV Upload
 
-The **CSV Upload** project is a Laravel-based web application designed to streamline the process of uploading CSV files, processing their data, and storing it in a database. The application leverages Laravel's queue system for efficient background job processing and utilizes WebSockets to provide users with real-time updates on the progress of their data upload.
+Laravel 10 application for CSV upload and processing with queued background jobs, Redis-backed real-time progress updates, and a local Docker workflow.
 
-## Table of Contents
+## Stack
 
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-- [Configuration](#configuration)
-- [Running Queue Workers](#running-queue-workers)
-- [Running Websockets Server](#running-websockets-server)
-- [Usage](#usage)
-- [Features](#features)
-- [Contributing](#contributing)
-- [License](#license)
+- PHP 8.3
+- Laravel 10
+- MySQL 8
+- Redis 7
+- Laravel Horizon
+- Laravel WebSockets
+- Vite / npm
+
+## What It Does
+
+- Upload CSV files from the web UI
+- Process imports asynchronously through Laravel queues
+- Broadcast import progress over WebSockets
+- Update existing records from follow-up CSV uploads
+- Mark failed imports when the input file is invalid
 
 ## Prerequisites
 
-Before you begin, ensure you have the following prerequisites installed on your system:
+For local non-Docker development:
 
-- [PHP](https://www.php.net/) (v8.1 or higher)
-- [Composer](https://getcomposer.org/) (v2 or higher)
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [npm](https://www.npmjs.com/) (v9 or higher)
-- [MySQL Database](https://www.mysql.com/)
+- PHP 8.3
+- Composer 2
+- Node.js 20 and npm
+- MySQL 8
+- Redis
 
-You can verify the installed versions by running the following commands:
+For containerized development, Docker Desktop with Compose is enough.
+
+## Quick Start With Docker
 
 ```bash
-php --version
-composer --version
-node --version
-npm --version
+cp .env.docker .env
+docker compose up -d --build
+docker compose exec laravel composer install
+docker compose exec laravel npm install
+docker compose exec laravel php artisan key:generate
+docker compose exec laravel php artisan migrate
 ```
 
-## Getting Started
+Open the app at `http://localhost:8000`.
 
-To get started with the project, follow these steps:
+Useful ports:
 
-1. Install PHP dependencies:
+- `8000` Laravel app
+- `6001` WebSocket server
+- `3307` MySQL
+- `6380` Redis
 
-    ```bash
-    composer install
-    ```
+More Docker detail lives in [DOCKER.md](/Users/tharhtoo/Herd/csv-upload/DOCKER.md) and [DOCKER-EXPLAINED.md](/Users/tharhtoo/Herd/csv-upload/DOCKER-EXPLAINED.md).
 
-2. Install JavaScript dependencies:
-
-    ```bash
-    npm install
-    ```
-
-3. Building the Application:
-
-    ```bash
-    npm run build
-    ```
-
-4. Copy the `.env.example` file to `.env` and configure your environment variables:
-
-    ```bash
-    cp .env.example .env
-    ```
-
-5. Generate an application key:
-
-    ```bash
-    php artisan key:generate
-    ```
-
-6. Run database migrations:
-
-    ```bash
-    php artisan migrate
-    ```
-
-7. Start the development server:
-
-    ```bash
-    php artisan serve
-    ```
-
-8. Access your application at `http://localhost:8000`.
-
-## Running Queue Workers
-
-To process queued jobs and tasks, you can use the following command:
+## Local Setup Without Docker
 
 ```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+```
+
+Run the app and supporting processes in separate terminals:
+
+```bash
+php artisan serve
 php artisan queue:work
+php artisan websockets:serve
+npm run dev
 ```
 
-This command will start the queue worker, which is essential for background processing and handling tasks asynchronously.
-
-## Running Websockets Server
-
-To run the WebSockets server for real-time features, you can use the following command:
+If you use Horizon locally, run:
 
 ```bash
-php artisan websockets:serve
+php artisan horizon
 ```
 
-## Configuration
+## Environment Notes
 
-- Update the `.env` file with your database credentials.
-  - `DB_CONNECTION`: Set this to your database connection type (e.g., `mysql`).
-  - `DB_HOST`: Specify the database host (e.g., `127.0.0.1`).
-  - `DB_PORT`: Set the database port (e.g., `3306` for MySQL).
-  - `DB_DATABASE`: Enter the name of your database (e.g., `laravel`).
-  - `DB_USERNAME`: Provide your database username (e.g., `root`).
-  - `DB_PASSWORD`: Enter the corresponding password for the database user. If your database has no password, leave this field empty.
+Core values used by this project:
 
-## Usage Instructions
+```env
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+REDIS_HOST=redis
+REDIS_PORT=6379
+QUEUE_CONNECTION=redis
+BROADCAST_DRIVER=pusher
+PUSHER_HOST=127.0.0.1
+PUSHER_PORT=6001
+PUSHER_SCHEME=http
+```
 
-1. **Download CSV Files**:
+Inside Docker containers, use Compose service names such as `mysql` and `redis`. From the browser, connect to the WebSocket host exposed on your machine.
 
-    - Start by downloading the necessary CSV files from the provided links:
-        - [yoprint_test_import.csv](https://drive.google.com/file/d/1gHgR6KPxTZ78Z2zIj4XKt168A9Q6jdet/view?usp=drive_link)
-        - [yoprint_test_updated.csv](https://drive.google.com/file/d/11Fp4Sh3Jfu3kH40UzDJc20-0DdW2zGNg/view?usp=drive_link)
-        - [yoprint_test_import_1m.csv](https://drive.google.com/file/d/1v16Nr7c_rXGeEmJdnwuwKqpAGYGGaU6V/view?usp=drive_link)
-        - [yoprint_test_import - Failed.csv](https://drive.google.com/file/d/1DP0S8TK-sBno8T-n8bOjcBgSSgd937V0/view?usp=drive_link)
+## Common Commands
 
-2. **Upload yoprint_test_import.csv**:
+```bash
+# Tests
+php artisan test
+php artisan test --testsuite=Feature
+php artisan test --testsuite=Unit
 
-    - After downloading, navigate to the web application's index page.
-    - Select the `yoprint_test_import.csv` file for upload.
-    - Click the "Upload" button to initiate the data import process.
+# Code style
+./vendor/bin/pint
+./vendor/bin/pint --test
 
-    You will see the progress of the data import and the percentage completed in realtime as the file is processed.
+# Cache and config
+php artisan optimize:clear
+php artisan config:clear
+php artisan cache:clear
 
-3. **Upload yoprint_test_updated.csv**:
+# Queue worker reload after job changes
+php artisan queue:restart
+```
 
-    - Once the import of `yoprint_test_import.csv` is complete, proceed to upload the `yoprint_test_updated.csv` file.
-    - This file contains data with unique keys that will be used to update existing records.
+Docker equivalents:
 
-    After uploading, the application will identify matching records and update them accordingly.
+```bash
+docker compose exec laravel php artisan test
+docker compose exec laravel ./vendor/bin/pint
+docker compose exec laravel php artisan optimize:clear
+```
 
-4. **Upload yoprint_test_import - Failed.csv**:
+## Sample CSV Flow
 
-    - To observe how the application handles issues, upload the `yoprint_test_import - Failed.csv` file.
-    - This file is intentionally formatted to trigger errors during processing.
+Test files referenced by the original project documentation:
 
-    As a result, the status of the file will change to "failed," demonstrating the application's ability to handle and report errors.
+- `yoprint_test_import.csv`
+- `yoprint_test_updated.csv`
+- `yoprint_test_import_1m.csv`
+- `yoprint_test_import - Failed.csv`
 
-5. **Uploading 1 Million Records (Optional)**:
+Typical flow:
 
-    If you want to process a large dataset with one million records, upload the `yoprint_test_import_1m.csv` file.
-    Consider the following before you start the import process:
+1. Upload `yoprint_test_import.csv` to create records.
+2. Upload `yoprint_test_updated.csv` to update existing records by unique keys.
+3. Upload `yoprint_test_import - Failed.csv` to verify failure handling.
+4. Upload `yoprint_test_import_1m.csv` only in a controlled environment if you want to test large imports.
 
-    - Ensure your server and database are properly configured to handle such a large dataset.
-    - It's recommended to perform this upload in a controlled environment due to the potentially longer processing time.
-    - Please be patient, as the application will take more time to process and import one million records.
+Queue workers and the WebSocket server must be running or you will not see background progress updates.
 
-These instructions will guide you through the process of using the web application to upload, process, and update CSV files. Remember to download the provided CSV files, **run queue jobs**, **run websockets server** and follow the steps in sequence for a complete demonstration of the application's capabilities.
+## Docker Image Notes
 
-## Web Application Features
+The app image is defined in [docker/8.3/Dockerfile](/Users/tharhtoo/Herd/csv-upload/docker/8.3/Dockerfile). It currently installs a focused local development toolset:
 
-- **CSV File Upload**: Easily upload CSV files through the web interface.
+- PHP 8.3 CLI
+- Composer
+- Node.js and npm
+- MySQL client
+- Supervisor
+- PHP extensions used by this app, including MySQL, Redis, XML, ZIP, BCMath, Intl, MBString, Curl, Readline, PCNTL, and POSIX
 
-- **Real-Time Progress Tracking**: The application provides live updates on data import progress with a percentage completion indicator.
+Unused extras such as PostgreSQL tooling, SQLite tooling, GD, Imagick, Xdebug, Yarn, pnpm, and Bun are intentionally excluded.
 
-- **Data Update**: The application supports data updates using unique keys from the `yoprint_test_updated.csv` file, enabling efficient data maintenance.
+## Project Structure
 
-- **Error Handling**: It effectively handles errors in data processing, as demonstrated when uploading `yoprint_test_import - Failed.csv`, with the status of the file changed to "failed."
+```text
+app/
+database/
+resources/
+routes/
+tests/
+docker/
+```
 
-These features make the web application a robust tool for managing and processing CSV data with real-time feedback and error handling capabilities.
+## License
+
+This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
